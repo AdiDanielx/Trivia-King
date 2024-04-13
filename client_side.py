@@ -29,19 +29,29 @@ class Client:
     def connect_to_game(self,addr):
         self.conn_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.conn_tcp.connect(addr)
+        self.conn_tcp.send(self.player_name.encode('utf-8'))#send player name
         self.playing = True
-    
+
+    def play(self):
+        while True:
+            try:
+                messege = self.conn_tcp.recv(self.buff_size)
+            except:
+                print('error')
+                return
+            print(messege.decode())
     def start(self):
         details = self.listen_for_offers()
         print(details)
         print((details[0][0],details[1]))
         self.connect_to_game((details[0][0],details[1]))
+        self.play()
+
 
 
     
 
 
 c=Client('abcdefg') 
-c1=Client('tyutrhf') 
 c.start() 
        

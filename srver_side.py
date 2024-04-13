@@ -35,41 +35,57 @@ class Server:
         message = struct.pack('IbH32s', self.magic_cookie, self.message_type, self.tcp_port, self.server_name.encode('utf-8'))
         while self.keep_Sending:
             # self.broadcast_socket.sendto(message,(self.subnet_broadcast_ip, self.udp_port))
-            self.broadcast_socket.sendto(message,('255.255.255.255', self.udp_port))
+            self.broadcast_socket.sendto(message,('<broadcast>', self.udp_port))
             time.sleep(1)
     
     def handle_client(self,conn,addr):
-        print(f'new connetion{addr[0]}')
-        print(conn)
+        print(f'new connetion {addr[0]}')
         connected = True
         player_name = conn.recv(self.buff_size).decode()
-        print(player_name)
+        self.players[player_name]=(conn,addr)
+        print(self.players)
     
     def get_players(self):
-        time_lim = time.time()+10
-        players_list = []
         self.welcome_socket.listen()
-        while True:   
-            if(time.time()>time_lim):
-                break           
-            conn,adrr = self.welcome_socket.accept()
-            t = Thread(target=self.handle_client, args=(conn,adrr))
-            players_list.append(t) 
-            print(f'active connections: {threading.active_count()-2}')  
-            t.start()
+        self.welcome_socket.settimeout(10)  # Set a timeout of 10 seconds for accepting connections
+        while self.keep_Sending:
+            try:
+                conn, addr = self.welcome_socket.accept()
+                self.welcome_socket.settimeout(10)
+                threading.Thread(target=self.handle_client, args=(conn, addr)).start()
+                print(f'active connections: {threading.active_count()-3}')  
+            except socket.timeout:
+                for i in self.players.values():
+                    i[0].send(f"Welcome to {self.server_name} server, where we are answering trivia questions about somthing. \n player1: {self.players.keys()}".encode('utf-8'))
+                self.keep_Sending = False
+                break
         self.keep_Sending = False
-        print("starting game")
 
     def send_questions(self,player,addr):
 
         pass
         
     
-    def play(self):
-        if self.keep_Sending==True:
-            print('not enough players')
-        else:
-            print('game started')
+    def play(self,round = 0):
+        for name, (conn, addr) in self.players.items():
+            try:
+                conn.send("True or false: Aston Villa's current manager is Pep Guardiola\n".encode('utf-8'))
+                print(f'Sent question to {name}')
+                
+                # Set a timeout for receiving the answer
+                conn.settimeout(10)
+                
+                # Receive the answer from the client
+                answer = "conn.accept()"
+                if answer:
+                    print(f'Received answer from {name}: {answer}')
+                else:
+                    print(f'No answer received from {name} within 10 seconds')
+                
+            except socket.timeout:
+                print(f'No answer received from {name} within 10 seconds')
+
+
 
 
     def start(self):
