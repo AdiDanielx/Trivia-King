@@ -64,12 +64,11 @@ class Server:
             time.sleep(1)
     
     def handle_client(self,conn,addr):
-        print(f'new connetion{addr[0]}')
-        print(conn)
-        connected = True
         player_name = conn.recv(self.buff_size).decode()
-        print(player_name)
-    
+        print(f"Player connected: {player_name}")
+        self.players[player_name] = conn
+        conn.send(f"Welcome {player_name}, waiting for other players...\n".encode())
+
     def get_players(self):
         print("Waiting for players to join...")
         self.welcome_socket.listen()
@@ -77,63 +76,81 @@ class Server:
             while True:
                 conn, addr = self.welcome_socket.accept()
                 self.welcome_socket.settimeout(10)
-                player_name = conn.recv(self.buff_size).decode().strip()
-                if player_name:
-                    self.players[player_name] = conn
-                    print(f"Player {len(self.players)}: {player_name}")
-                    t = Thread(target=self.handle_client, args=(conn, addr))
-                    t.start()
-                    if len(self.players) >= 2:
-                        self.welcome_socket.settimeout(10)
-                        break
-                    else:
-                        self.welcome_socket.settimeout(None)  # Remove the timeout
-            self.start()
+                t = Thread(target=self.handle_client, args=(conn, addr))
+                t.start()
+                # if len(self.players) >= 2:
+                #     self.welcome_socket.settimeout(10)
+                #     break
+                # else:
+                #     self.welcome_socket.settimeout(None)  # Remove the timeout
         except socket.timeout:
-            print("Timeout: Not enough players joined within 10 seconds.")
+            # print("Timeout: Not enough players joined within 10 seconds.")
+            self.send_questions()
+    
+    def send_questions(self):
+        while True:
+            if len(self.players) < 2:
+                print("Not enough players. Game cannot start.")
+                return
 
-    def send_questions(self,player,addr):
-        for question, answer in self.questions:
-            # Randomly shuffle the questions for each round
             random.shuffle(self.questions)
-            # Send the question to the player
-            player.sendall(question.encode('utf-8') + b'\n')
-            # Set a timeout for 10 seconds for the player to answer
-            player.settimeout(10)
-            try:
-                # Receive the player's answer
-                data = player.recv(1024).decode('utf-8').strip()
-                # Check if the answer is correct
-                if data.lower() == 't' and answer or data.lower() == 'f' and not answer:
-                    player.sendall(b'Correct!\n')
-                else:
-                    player.sendall(b'Incorrect!\n')
-            except socket.timeout:
-                player.sendall(b'Timeout! No answer received.\n')
+            question, answer = self.questions[0]
+            self.questions = self.questions[1:] + [self.questions[0]]  # Rotate questions
 
-        # After all questions are answered, close the connection
-        conn.close()
+            players_copy = list(self.players.items())  # Convert dict_items to list for compatibility with indexing
+            player_threads = []
+            correct_players = []
 
-        
-        
+            for player, conn in players_copy:
+                t = Thread(target=self.send_question_to_player, args=(conn, question, answer, correct_players))
+                player_threads.append(t)
+                t.start()
+
+            # Wait for all player threads to finish
+            for t in player_threads:
+                t.join()
+
+            # Remove players who didn't answer or answered incorrectly
+            for player, conn in players_copy:
+                if player not in correct_players:
+                    print(f"Player {player} was eliminated.")
+                    del self.players[player]
+                    conn.send("You have been eliminated from the game.\n".encode())
+
+            # Check if there are still players in the game
+            if len(self.players) == 0:
+                print("No more players remaining. Game over.")
+                break
+
+    # def send_question_to_player(self, conn, question):
+    #     conn.send(f"True or false: {question}\n".encode())
+    def send_question_to_player(self, conn, question, answer, correct_players):
+        conn.send(f"True or false: {question}\n".encode())
+        try:
+            conn.settimeout(10)
+            response = conn.recv(1024).decode().strip().lower()
+            if (response == 't' and answer) or (response == 'f' and not answer):
+                conn.send("Correct!\n".encode())
+                correct_players.append(conn)
+            else:
+                conn.send("Incorrect!\n".encode())
+        except socket.timeout:
+            conn.send("Timeout! No answer received.\n".encode())
+
     def play(self):
         if self.keep_Sending==True:
             print('not enough players')
         else:
             print('game started')
 
-
-    def start(self):
-        broardcast_thread = Thread(target = self.send_broadcast)
-        listen_thread = Thread(target = self.get_players)
-        broardcast_thread.start()
+    def start_game(self):
+        broadcast_thread = Thread(target=self.send_broadcast)
+        listen_thread = Thread(target=self.get_players)
+        broadcast_thread.start()
         listen_thread.start()
-        broardcast_thread.join()
+        broadcast_thread.join()
         listen_thread.join()
         self.play()
+    
 
 
-a= Server()
-a.start()
-# print(a.ip)
-# print(a.subnet_broadcast_ip)ע
