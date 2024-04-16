@@ -20,7 +20,7 @@ class Client:
             data, addr = self.listen_socket.recvfrom(self.buff_size)
             msg = struct.unpack(self.udp_format, data)
             if msg[0] == self.magic_cookie and msg[1] == self.message_type:
-                print(f"Received offer from server '{msg[3].decode('utf-8')}' at address {addr[0]}, attempting to connect")
+                print(f"Received offer from server '{msg[3].decode('utf-8')}' at address {addr[0]}, attempting to connect...")
                 return addr,msg[2] #return tuple of server ip and dedicated port
             else:
                 return addr,msg
@@ -29,10 +29,7 @@ class Client:
         server_ip, server_port = addr
         self.conn_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.conn_tcp.connect((server_ip, server_port))
-        self.conn_tcp.sendall(self.player_name.encode('utf-8'))
-        # data = self.conn_tcp.recv(self.buff_size).decode().strip()
-        welcome_message = self.conn_tcp.recv(self.buff_size).decode().strip()
-        print(welcome_message)
+        self.conn_tcp.send(self.player_name.encode('utf-8'))
         players_mes = self.conn_tcp.recv(self.buff_size).decode().strip()
         print(players_mes)
 
@@ -49,7 +46,6 @@ class Client:
                 round = self.conn_tcp.recv(self.buff_size).decode().strip()
                 print(round)
 
-
         except Exception as e:
             print(f"Error receiving/sending data: {e}")
 
@@ -59,8 +55,6 @@ class Client:
     def start(self):
         self.set_player_name(input("Enter your name: "))
         details = self.listen_for_offers()
-        print(details)
-        print((details[0][0],details[1]))
         self.connect_to_game((details[0][0],details[1]))
 
 
