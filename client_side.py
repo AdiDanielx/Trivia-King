@@ -23,18 +23,35 @@ class Client:
                 print(f"Received offer from server '{msg[3].decode('utf-8')}' at address {addr[0]}, attempting to connect")
                 return addr,msg[2] #return tuple of server ip and dedicated port
             else:
-                print('sddff')
-                return
+                return addr,msg
 
     def connect_to_game(self,addr):
-        # self.conn_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # self.conn_tcp.connect(addr)
-        # self.playing = True
         server_ip, server_port = addr
         self.conn_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.conn_tcp.connect((server_ip, server_port))
         self.conn_tcp.sendall(self.player_name.encode('utf-8'))
+        # data = self.conn_tcp.recv(self.buff_size).decode().strip()
+        welcome_message = self.conn_tcp.recv(self.buff_size).decode().strip()
+        print(welcome_message)
+        players_mes = self.conn_tcp.recv(self.buff_size).decode().strip()
+        print(players_mes)
+
         self.playing = True
+        try:
+            while True:
+                data = self.conn_tcp.recv(self.buff_size).decode().strip()
+                if not data:
+                    break
+                print(data)
+                player_input = input("Your answer (T/F): ").strip().lower()
+                self.conn_tcp.sendall(player_input.encode('utf-8'))
+                data = self.conn_tcp.recv(self.buff_size).decode().strip()
+                round = self.conn_tcp.recv(self.buff_size).decode().strip()
+                print(round)
+
+
+        except Exception as e:
+            print(f"Error receiving/sending data: {e}")
 
     def set_player_name(self, name):
         self.player_name = name
@@ -51,6 +68,6 @@ class Client:
 
 
 c=Client() 
-c1=Client() 
+# c1=Client() 
 c.start() 
        
