@@ -54,55 +54,74 @@ class Server:
             ("Messi is the highest-paid football player in the world.", True),
         ]
 
+        self.round = 0
 
     def send_broadcast(self):
         print("Server started, listening on IP address " + self.ip)
         message = struct.pack('IbH32s', self.magic_cookie, self.message_type, self.tcp_port, self.server_name.encode('utf-8'))
         while self.keep_Sending:
-            # self.broadcast_socket.sendto(message,(self.subnet_broadcast_ip, self.udp_port))
-            self.broadcast_socket.sendto(message,('255.255.255.255', self.udp_port))
+            self.broadcast_socket.sendto(message,("<broadcast>", self.udp_port))
             time.sleep(1)
     
     def handle_client(self,conn,addr):
         player_name = conn.recv(self.buff_size).decode()
         print(f"Player connected: {player_name}")
         self.players[player_name] = conn
-        conn.send(f"Welcome {player_name}, waiting for other players...\n".encode())
+        
 
     def get_players(self):
-        print("Waiting for players to join...")
         self.welcome_socket.listen()
         try:
             while True:
-                conn, addr = self.welcome_socket.accept()
                 self.welcome_socket.settimeout(10)
+                conn, addr = self.welcome_socket.accept()
                 t = Thread(target=self.handle_client, args=(conn, addr))
                 t.start()
-                # if len(self.players) >= 2:
-                #     self.welcome_socket.settimeout(10)
-                #     break
-                # else:
-                #     self.welcome_socket.settimeout(None)  # Remove the timeout
         except socket.timeout:
-            # print("Timeout: Not enough players joined within 10 seconds.")
             self.send_questions()
-    
+
     def send_questions(self):
+        players_copy = list(self.players.items())  # Convert dict_items to list for compatibility with indexing
+        player_threads = []           
+        welcome_string = f"Welcome to {self.server_name} server, where we are answering trivia questions about Lionel Messi\n"
+        i = 1
+        for player, _ in players_copy:
+            welcome_string += f"Player {i}: {player}\n"
+            i += 1
+        welcome_string += "=="
+        # Send welcome string parallel to players
+        for _, conn in players_copy:
+            t = Thread(target=self.send_welcome_message, args=(conn, welcome_string))
+            player_threads.append(t)
+            t.start()        
         while True:
             if len(self.players) < 2:
-                print("Not enough players. Game cannot start.")
+                # print("Not enough players. Game cannot start.")
                 return
-
             random.shuffle(self.questions)
             question, answer = self.questions[0]
             self.questions = self.questions[1:] + [self.questions[0]]  # Rotate questions
 
-            players_copy = list(self.players.items())  # Convert dict_items to list for compatibility with indexing
-            player_threads = []
+
             correct_players = []
+            incorrect_players = []
+
+
+            num_players = len(self.players)
+            j=0
+            self.round +=1
+            send_q = f"Round {self.round}, played by "
+            for players,conn in self.players.items():
+                j += 1
+                if j == num_players:
+                    send_q += f"and {players}:"
+                elif j == num_players - 1:
+                    send_q += f"{players} "
+                else:
+                    send_q += f"{players}, "
 
             for player, conn in players_copy:
-                t = Thread(target=self.send_question_to_player, args=(conn, question, answer, correct_players))
+                t = Thread(target=self.send_question_to_player, args=(conn, question, answer, correct_players,incorrect_players,send_q))
                 player_threads.append(t)
                 t.start()
 
@@ -110,32 +129,33 @@ class Server:
             for t in player_threads:
                 t.join()
 
+
             # Remove players who didn't answer or answered incorrectly
             for player, conn in players_copy:
-                if player not in correct_players:
-                    print(f"Player {player} was eliminated.")
-                    del self.players[player]
+                if conn not in correct_players:
+                    # del self.players[player]
                     conn.send("You have been eliminated from the game.\n".encode())
 
-            # Check if there are still players in the game
-            if len(self.players) == 0:
-                print("No more players remaining. Game over.")
-                break
+            if len(self.players) == 1:
+                winner = list(self.players.keys())[0]  # Get the name of the winner
+                conn.send("won the game!".encode())
+                print(f"Player {winner} won the game!")  # Announce the winner
+                return
 
-    # def send_question_to_player(self, conn, question):
-    #     conn.send(f"True or false: {question}\n".encode())
-    def send_question_to_player(self, conn, question, answer, correct_players):
-        conn.send(f"True or false: {question}\n".encode())
+    def send_question_to_player(self, conn, question, answer, correct_players,incorrect_players,message):
+        conn.send(f"{message}\n True or false: {question}\n".encode())
         try:
             conn.settimeout(10)
             response = conn.recv(1024).decode().strip().lower()
-            if (response == 't' and answer) or (response == 'f' and not answer):
-                conn.send("Correct!\n".encode())
+            if (response in ['t', 'y', '1'] and answer) or (response in ['f', 'n', '0'] and not answer):
                 correct_players.append(conn)
             else:
-                conn.send("Incorrect!\n".encode())
+                incorrect_players.append(conn)
         except socket.timeout:
             conn.send("Timeout! No answer received.\n".encode())
+
+    def send_welcome_message(self, conn, welcome_string):
+        conn.send(welcome_string.encode())
 
     def play(self):
         if self.keep_Sending==True:
@@ -154,3 +174,7 @@ class Server:
     
 
 
+a= Server()
+a.start_game()
+# print(a.ip)
+# print(a.subnet_broadcast_ip)
