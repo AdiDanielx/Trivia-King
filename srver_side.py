@@ -100,7 +100,7 @@ class Server:
                     send_q += f"and {player}:"
                 else:
                     send_q += f"{player}, "
-            send_q += f"\nTrue or false: {question}"
+            send_q += f"\nTrue or false: {question}\nYour answer True/False:"
 
             results = self.send_parallel_and_recv(send_q,players_copy,answer)
 
@@ -128,6 +128,7 @@ class Server:
         self.keep_Sending = True
         self.players = {}
         self.round = 0
+        print("Game over,sending out offer requests...")
 
     def start_message(self,players):
         welcome_string = f"\nWelcome to {self.server_name} server, where we are answering trivia questions about Lionel Messi\n"
