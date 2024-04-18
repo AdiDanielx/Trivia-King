@@ -1,8 +1,9 @@
 import socket
 import struct
+import random
 
 class BasePlayer():
-    def __init__(self):
+    def __init__(self,bot=False):
         self.udp_port = 13117
         self.buff_size = 1024
         self.magic_cookie = 0xabcddcba
@@ -10,11 +11,12 @@ class BasePlayer():
         self.udp_format = 'IbH32s'
         self.player_name = None
         self.listen = True
-        
+        self.bot = bot
         self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self.listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.listen_socket.bind(('', self.udp_port))
-                
+        self.names = ["Alice", "Bob", "Charlie", "David", "Emma", "Frank", "Grace", "Henry", "Ivy", "Jack", "Katie", "Leo", "Mia", "Noah", "Olivia", "Peter", "Quinn", "Rachel", "Sam", "Taylor"]
+        
         
     def listen_for_offers(self):
         print("Client started, listening for offer requests")
@@ -42,16 +44,24 @@ class BasePlayer():
             self.listen = False
             while True:
                 question = self.conn_tcp.recv(self.buff_size).decode().strip()
-                print(question)
-                self.conn_tcp.settimeout(10)
-                player_input = input().strip().lower()
-                while player_input not in['t','y','1','f','n','0']:
-                    player_input = input("please enter a valid input : ").strip().lower()
-                self.conn_tcp.sendall(player_input.encode('utf-8'))
-                mesage2 = self.conn_tcp.recv(self.buff_size).decode().strip()
-                if "Game over" in mesage2:
-                    print(mesage2)
+                if "Game over" in question:
+                    print(f"\n{question}")
+                    print("\nServer disconnected, listening for offer requests...")
+                    self.listen = True
                     break
+                print(question)
+                if self.bot == False:
+                    self.conn_tcp.settimeout(10)
+                    player_input = input().strip().lower()
+                    while player_input not in['t','y','1','f','n','0']:
+                        player_input = input("please enter a valid input : ").strip().lower()
+                    self.conn_tcp.sendall(player_input.encode('utf-8'))
+                else:
+                    random_char = random.choice(['t', 'y', '1', 'f', 'n', '0'])
+                    self.conn_tcp.sendall(random_char.encode('utf-8'))
+
+                mesage2 = self.conn_tcp.recv(self.buff_size).decode().strip()
+                print(f"\n{mesage2}")
         except socket.timeout:
             player_input = -1
             self.conn_tcp.sendall(player_input.encode('utf-8'))
@@ -59,7 +69,8 @@ class BasePlayer():
 
     def play(self):
         details = self.listen_for_offers()
-        self.player_name = (input("Enter your name: "))
+        self.player_name= random.choice(self.names)
+        print(f"Name of your player : {self.player_name}")
         self.connect_to_game((details[0][0],details[1]))
         self.questions_answer()
         # self.results()
