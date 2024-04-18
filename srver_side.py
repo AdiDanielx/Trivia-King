@@ -20,7 +20,8 @@ class Server:
         self.players = {}
         self.round = 0
         self.keep_Sending = True
-
+        self.num_question = -1
+        self.numPlayers = 0
 
         self.tcpSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #create new TCP socket IPv4
         self.tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #allow reusing the socket
@@ -63,17 +64,23 @@ class Server:
             time.sleep(1)
 
     def handle_client(self,conn,addr):
-        player_name = conn.recv(self.buff_size).decode()
-        print(bcolors.HEADER +f"Player connected: {player_name}")
-        self.players[player_name] = conn
-
+        try:
+            player_name = conn.recv(self.buff_size).decode()
+            print(bcolors.HEADER +f"Player connected: {player_name}")
+            self.players[player_name] = conn
+        except Exception as e:
+            conn.close()
+            player_to_remove = [name for name, connection in self.players.items() if connection == conn]
+            del self.players[player_to_remove[0]]
     def get_players(self):
         self.tcpSocket.listen()
         threads = []
         try:
             while True:
                 conn, addr = self.tcpSocket.accept()
-                self.tcpSocket.settimeout(10) #לבדוק להוסיף טיימר רק אחרי שיש 2 משתמשים
+                self.numPlayers+=1
+                if (self.numPlayers)>1:
+                    self.tcpSocket.settimeout(10) 
                 t = threading.Thread(target=self.handle_client, args=(conn, addr))
                 threads.append(t)
                 t.start()
@@ -89,8 +96,11 @@ class Server:
         # print(startMessage)
         self.send_parallel(startMessage,players_copy)
         while True:
-            random.shuffle(self.questions)
-            question, answer = self.questions[0]
+            # random.shuffle(self.questions)
+            if self.num_question > len(self.questions):
+                self.num_question=0
+            self.num_question +=1
+            question, answer = self.questions[self.num_question]
             # self.questions = self.questions[1:] + [self.questions[0]]  # Rotate questions
 
             self.round += 1
@@ -114,14 +124,14 @@ class Server:
                     round_results+=f" {i[0]} Wins!"
             self.send_parallel(bcolors.OKGREEN+bcolors.BOLD+round_results,self.players.items())
             
-            if len(results[1])==1:
+            if len(results[0])==1:
                 end_mesg = bcolors.RED+f"Game over!\nCongratulations to the winner: {results[0][0][0]}"
                 self.send_parallel(end_mesg,self.players.items())
                 self.game_over(self.players.items())
                 break
 
             if len(results[0])>1:
-                players_copy = [(player, conn) for player, conn in players_copy if player not in results[1]]
+                players_copy = [(player, conn) for player, conn in players_copy if player not in [p[0] for p in results[1]]]
 
     def game_over(self,players):
         for _,conn in players:
@@ -129,6 +139,7 @@ class Server:
         self.keep_Sending = True
         self.players = {}
         self.round = 0
+        self.numPlayers = 0
         print( bcolors.RED+"Game over,sending out offer requests...")
 
     def start_message(self,players):
