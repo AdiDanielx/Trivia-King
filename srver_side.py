@@ -4,7 +4,7 @@ import time
 import random
 import threading
 import concurrent.futures
-
+from Colors import bcolors
 
 class Server:
 
@@ -56,7 +56,7 @@ class Server:
 
     def send_broadcast(self):
         self.udp_socket()
-        print("Server started, listening on IP address " + self.ip)
+        print(bcolors.OKBLUE +bcolors.BOLD+"Server started, listening on IP address " + self.ip)
         message = struct.pack('IbH32s', self.magic_cookie, self.message_type, self.tcp_port, self.server_name.encode('utf-8'))
         while self.keep_Sending:
             self.broadcast_socket.sendto(message,("<broadcast>", self.udp_port))
@@ -64,7 +64,7 @@ class Server:
 
     def handle_client(self,conn,addr):
         player_name = conn.recv(self.buff_size).decode()
-        print(f"Player connected: {player_name}")
+        print(bcolors.HEADER +f"Player connected: {player_name}")
         self.players[player_name] = conn
 
     def get_players(self):
@@ -86,6 +86,7 @@ class Server:
         self.keep_Sending = False
         players_copy = list(self.players.items())
         startMessage = self.start_message(players_copy)
+        # print(startMessage)
         self.send_parallel(startMessage,players_copy)
         while True:
             random.shuffle(self.questions)
@@ -102,8 +103,8 @@ class Server:
                     send_q += f"{player}, "
             send_q += f"\nTrue or false: {question}\nYour answer True/False:"
 
-            results = self.send_parallel_and_recv(send_q,players_copy,answer)
-
+            results = self.send_parallel_and_recv(bcolors.OKCYAN+send_q,players_copy,answer)
+            print(results)
             round_results = ""
             for i in results[1]:
                 round_results +=f"{i[0]} is incorrect!\n"
@@ -111,10 +112,10 @@ class Server:
                 round_results +=f"{i[0]} is correct!"
                 if len(results[0])==1:
                     round_results+=f" {i[0]} Wins!"
-            self.send_parallel(round_results,self.players.items())
+            self.send_parallel(bcolors.OKGREEN+bcolors.BOLD+round_results,self.players.items())
             
             if len(results[1])==1:
-                end_mesg = f"Game over!\nCongratulations to the winner: {results[0][0][0]}"
+                end_mesg = bcolors.RED+f"Game over!\nCongratulations to the winner: {results[0][0][0]}"
                 self.send_parallel(end_mesg,self.players.items())
                 self.game_over(self.players.items())
                 break
@@ -128,19 +129,19 @@ class Server:
         self.keep_Sending = True
         self.players = {}
         self.round = 0
-        print("Game over,sending out offer requests...")
+        print( bcolors.RED+"Game over,sending out offer requests...")
 
     def start_message(self,players):
-        welcome_string = f"\nWelcome to {self.server_name} server, where we are answering trivia questions about Lionel Messi\n"
+        welcome_string = f"\n{bcolors.BOLD+bcolors.YELLOW}Welcome to {self.server_name} server, where we are answering trivia questions about Lionel Messi\n"
         player_list = "\n".join([f"Player {i+1}: {player[0]}" for i, player in enumerate(players)])
         welcome_string += player_list
         welcome_string += "\n=="
-        print(welcome_string)
+        # print(welcome_string)
         return welcome_string
 
     def send_parallel_and_recv(self,string_send,players,answer):
+        # print(bcolors.YELLOW+string_send)
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            print(string_send)
             self.send_parallel(string_send,players)
             futures = {executor.submit(self.get_message, conn, string_send): (name,conn) for name, conn in players}
             correct = []
