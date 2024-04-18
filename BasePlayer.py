@@ -44,22 +44,22 @@ class BasePlayer():
                 question = self.conn_tcp.recv(self.buff_size).decode().strip()
                 print(question)
                 self.conn_tcp.settimeout(10)
-                player_input = input("Your answer (T/F): ").strip().lower()
+                player_input = input().strip().lower()
                 while player_input not in['t','y','1','f','n','0']:
                     player_input = input("please enter a valid input : ").strip().lower()
                 self.conn_tcp.sendall(player_input.encode('utf-8'))
+                mesage2 = self.conn_tcp.recv(self.buff_size).decode().strip()
+                if "Game over" in mesage2:
+                    print(mesage2)
+                    break
         except socket.timeout:
             player_input = -1
             self.conn_tcp.sendall(player_input.encode('utf-8'))
-    
-    def results(self):
-        result = self.conn_tcp.recv(self.buff_size).decode().strip()
-        # print(result)
+
 
     def play(self):
-        while True:
-            details = self.listen_for_offers()
-            self.player_name = (input("Enter your name: "))
-            self.connect_to_game((details[0][0],details[1]))
-            self.questions_answer()
-            self.results()
+        details = self.listen_for_offers()
+        self.player_name = (input("Enter your name: "))
+        self.connect_to_game((details[0][0],details[1]))
+        self.questions_answer()
+        # self.results()
