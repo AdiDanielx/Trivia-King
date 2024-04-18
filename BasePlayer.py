@@ -1,6 +1,7 @@
 import socket
 import struct
 import random
+from Colors import bcolors
 
 class BasePlayer():
     def __init__(self,bot=False):
@@ -19,12 +20,12 @@ class BasePlayer():
         
         
     def listen_for_offers(self):
-        print("Client started, listening for offer requests")
+        print(bcolors.OKBLUE +bcolors.BOLD+"Client started, listening for offer requests")
         while self.listen:
             data, addr = self.listen_socket.recvfrom(self.buff_size)
             msg = struct.unpack(self.udp_format, data)
             if msg[0] == self.magic_cookie and msg[1] == self.message_type:
-                print(f"Received offer from server '{msg[3].decode('utf-8')}' at address {addr[0]}, attempting to connect...")
+                print(bcolors.OKBLUE+f"Received offer from server '{msg[3].decode('utf-8')}' at address {addr[0]}, attempting to connect...")
                 return addr,msg[2] #return tuple of server ip and dedicated port
             else:
                 return addr,msg
@@ -54,7 +55,7 @@ class BasePlayer():
                     self.conn_tcp.settimeout(10)
                     player_input = input().strip().lower()
                     while player_input not in['t','y','1','f','n','0']:
-                        player_input = input("please enter a valid input : ").strip().lower()
+                        player_input = input(bcolors.RED+bcolors.BOLD+"please enter a valid input : ").strip().lower()
                     self.conn_tcp.sendall(player_input.encode('utf-8'))
                 else:
                     random_char = random.choice(['t', 'y', '1', 'f', 'n', '0'])
@@ -70,7 +71,7 @@ class BasePlayer():
     def play(self):
         details = self.listen_for_offers()
         self.player_name= random.choice(self.names)
-        print(f"Name of your player : {self.player_name}")
+        print(bcolors.HEADER +f"Name of your player : {self.player_name}")
         self.connect_to_game((details[0][0],details[1]))
         self.questions_answer()
         # self.results()
