@@ -16,7 +16,8 @@ class BasePlayer():
         self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self.listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.listen_socket.bind(('', self.udp_port))
-        self.names = ["Alice", "Bob", "Charlie", "David", "Emma", "Frank", "Grace", "Henry", "Ivy", "Jack", "Katie", "Leo", "Mia", "Noah", "Olivia", "Peter", "Quinn", "Rachel", "Sam", "Taylor"]
+        self.names = ["Alice", "Bob", "Charlie", "David", "Emma", "Frank", "Grace", "Henry", "Ivy", "Jack", "Katie", "Leo", "Mia", "Noah", "Olivia", "Peter", "Quinn", "Rachel", "Sam", "Taylor",
+                    "Sophia", "Ethan", "Isabella", "James", "Sophie", "Alexander", "Charlotte", "Michael", "Emily", "Jacob", "Lily", "Daniel", "Ava", "Matthew", "Madison", "William", "Emma", "Elijah", "Chloe", "Aiden"]
         
         
     def listen_for_offers(self):
@@ -72,6 +73,6 @@ class BasePlayer():
         details = self.listen_for_offers()
         self.player_name= random.choice(self.names)
         print(bcolors.HEADER +f"Name of your player : {self.player_name}")
+        self.names.remove(self.player_name)
         self.connect_to_game((details[0][0],details[1]))
         self.questions_answer()
-        # self.results()
