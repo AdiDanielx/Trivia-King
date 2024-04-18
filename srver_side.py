@@ -73,54 +73,73 @@ class Server:
         try:
             while True:
                 conn, addr = self.tcpSocket.accept()
-                self.tcpSocket.settimeout(10)
+                self.tcpSocket.settimeout(10) #לבדוק להוסיף טיימר רק אחרי שיש 2 משתמשים
                 t = threading.Thread(target=self.handle_client, args=(conn, addr))
                 threads.append(t)
                 t.start()
         except:
-            # self.keep_Sending = False
             self.start_trivia()
         for i in threads:
             t.join()
     
     def start_trivia(self):
+        self.keep_Sending = False
         players_copy = list(self.players.items())
         startMessage = self.start_message(players_copy)
         self.send_parallel(startMessage,players_copy)
+        while True:
+            random.shuffle(self.questions)
+            question, answer = self.questions[0]
+            # self.questions = self.questions[1:] + [self.questions[0]]  # Rotate questions
 
-        random.shuffle(self.questions)
-        question, answer = self.questions[0]
-        self.questions = self.questions[1:] + [self.questions[0]]  # Rotate questions
+            self.round += 1
+            send_q = f"Round {self.round}, played by "
+            num_players = len(players_copy)
+            for i, (player, conn) in enumerate(players_copy):
+                if i == num_players - 1:
+                    send_q += f"and {player}:"
+                else:
+                    send_q += f"{player}, "
+            send_q += f"\nTrue or false: {question}"
 
-        self.round += 1
-        send_q = f"Round {self.round}, played by "
-        num_players = len(players_copy)
-        for i, (player, conn) in enumerate(players_copy):
-            if i == num_players - 1:
-                send_q += f"and {player}:"
-            else:
-                send_q += f"{player}, "
-        send_q += f"\bTrue or false: {question}"
-        print(send_q)
-        results = self.send_parallel_and_recv(send_q,players_copy,answer)
-        round_results = ""
-        for i in results[1]:
-            round_results +=f"{i[0]} is incorrect!\n"
-        for i in results[0]:
-            round_results +=f"{i[0]} is correct!\n"
+            results = self.send_parallel_and_recv(send_q,players_copy,answer)
 
-        self.send_parallel(round_results,self.players.items())
+            round_results = ""
+            for i in results[1]:
+                round_results +=f"{i[0]} is incorrect!\n"
+            for i in results[0]:
+                round_results +=f"{i[0]} is correct!"
+                if len(results[0])==1:
+                    round_results+=f" {i[0]} Wins!"
+            self.send_parallel(round_results,self.players.items())
+            
+            if len(results[1])==1:
+                end_mesg = f"Game over!\nCongratulations to the winner: {results[0][0][0]}"
+                self.send_parallel(end_mesg,self.players.items())
+                self.game_over(self.players.items())
+                break
+
+            if len(results[0])>1:
+                players_copy = [(player, conn) for player, conn in players_copy if player not in results[1]]
+
+    def game_over(self,players):
+        for _,conn in players:
+            conn.close()
+        self.keep_Sending = True
+        self.players = {}
+        self.round = 0
 
     def start_message(self,players):
         welcome_string = f"\nWelcome to {self.server_name} server, where we are answering trivia questions about Lionel Messi\n"
         player_list = "\n".join([f"Player {i+1}: {player[0]}" for i, player in enumerate(players)])
         welcome_string += player_list
-        welcome_string += "=="
+        welcome_string += "\n=="
         print(welcome_string)
         return welcome_string
 
     def send_parallel_and_recv(self,string_send,players,answer):
         with concurrent.futures.ThreadPoolExecutor() as executor:
+            print(string_send)
             self.send_parallel(string_send,players)
             futures = {executor.submit(self.get_message, conn, string_send): (name,conn) for name, conn in players}
             correct = []
@@ -128,6 +147,7 @@ class Server:
             for future in concurrent.futures.as_completed(futures):
                 name,conn = futures[future]
                 try:
+
                     result = future.result()  # This will wait for the thread to finish and return its result
                     if (result in ['t', 'y', '1'] and answer) or (result in ['f', 'n', '0'] and not answer):
                         correct.append((name,conn))  # Store the result with its corresponding connection
@@ -135,10 +155,10 @@ class Server:
                         incorrect.append((name,conn))
                 except Exception as e:
                     print(f"Exception: {e}")  # Handle exceptions here
-            executor.shutdown(wait=True)
             return correct,incorrect
     
     def send_parallel(self,string_send,players):
+        print(string_send)
         player_threads = []           
         for _, conn in players:
             t = threading.Thread(target=self.send_message, args=(conn, string_send))
@@ -146,7 +166,6 @@ class Server:
             t.start()
         for t in player_threads:
             t.join()
-
 
     def send_message(self, conn,mesg):
         conn.send(mesg.encode())
