@@ -9,6 +9,7 @@ import select
 from Colors import bcolors
 names = ["Alice", "Bob", "Charlie", "David", "Emma", "Frank", "Grace", "Henry", "Ivy", "Jack", "Katie", "Leo", "Mia", "Noah", "Olivia", "Peter", "Quinn", "Rachel", "Sam", "Taylor",
                     "Sophia", "Ethan", "Isabella", "James", "Sophie", "Alexander", "Charlotte", "Michael", "Emily", "Jacob", "Lily", "Daniel", "Ava", "Matthew", "Madison", "William", "Emma", "Elijah", "Chloe", "Aiden"]
+
 class BasePlayer():
     def __init__(self,bot=False):
         self.udp_port = 13117
@@ -36,15 +37,18 @@ class BasePlayer():
                 return addr,msg
 
     def connect_to_game(self, addr):
-        server_ip, server_port = addr
-        self.conn_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.conn_tcp.connect((server_ip, server_port))
-        # self.conn_tcp.send(self.player_name.encode('utf-8') + b'\n')
-        self.conn_tcp.send(self.player_name.encode('utf-8'))
+        try:
+            server_ip, server_port = addr
+            self.conn_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.conn_tcp.connect((server_ip, server_port))
+            # self.conn_tcp.send(self.player_name.encode('utf-8') + b'\n')
+            self.conn_tcp.send(self.player_name.encode('utf-8'))
 
-        players_mes = self.conn_tcp.recv(self.buff_size).decode().strip()
-        print(players_mes)
-
+            players_mes = self.conn_tcp.recv(self.buff_size).decode().strip()
+            print(players_mes)
+        except (ConnectionRefusedError, ConnectionResetError):
+            self.conn_tcp.close()
+            self.listen= True
     def input_with_timeout(self, timeout):
         user_input = ""
 
@@ -94,7 +98,7 @@ class BasePlayer():
         while True:
             details = self.listen_for_offers()
             self.player_name= random.choice(names)
-            print(bcolors.HEADER +f"Name of your player : {self.player_name}")
+            print(bcolors.WHITE +f"Name of your player : {self.player_name}")
             names.remove(self.player_name)
             self.connect_to_game((details[0][0],details[1]))
             self.questions_answer()
