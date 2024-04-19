@@ -22,7 +22,7 @@ class Server:
         self.keep_Sending = True
         self.num_question = -1
         self.numPlayers = 0
-
+        self.players_copy = []
         self.tcpSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #create new TCP socket IPv4
         self.tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #allow reusing the socket
         self.tcpSocket.bind((self.ip, 0)) #bind the socket to the server ip and assign port
@@ -68,7 +68,7 @@ class Server:
             player_name = conn.recv(self.buff_size).decode()
             print(bcolors.HEADER +f"Player connected: {player_name}")
             self.players[player_name] = conn
-        except Exception as e:
+        except ConnectionResetError:
             conn.close()
             player_to_remove = [name for name, connection in self.players.items() if connection == conn]
             del self.players[player_to_remove[0]]
@@ -91,10 +91,10 @@ class Server:
     
     def start_trivia(self):
         self.keep_Sending = False
-        players_copy = list(self.players.items())
-        startMessage = self.start_message(players_copy)
+        self.players_copy = list(self.players.items())
+        startMessage = self.start_message(self.players_copy)
         # print(startMessage)
-        self.send_parallel(startMessage,players_copy)
+        self.send_parallel(startMessage,self.players_copy)
         while True:
             # random.shuffle(self.questions)
             if self.num_question > len(self.questions):
@@ -105,16 +105,16 @@ class Server:
 
             self.round += 1
             send_q = f"Round {self.round}, played by "
-            num_players = len(players_copy)
-            for i, (player, conn) in enumerate(players_copy):
+            num_players = len(self.players_copy)
+            for i, (player, conn) in enumerate(self.players_copy):
                 if i == num_players - 1:
                     send_q += f"and {player}:"
                 else:
                     send_q += f"{player}, "
             send_q += f"\nTrue or false: {question}\nYour answer True/False:"
-
-            results = self.send_parallel_and_recv(bcolors.OKCYAN+send_q,players_copy,answer)
-            print(results)
+            
+            
+            results = self.send_parallel_and_recv(bcolors.OKCYAN+send_q,self.players_copy,answer)
             round_results = ""
             for i in results[1]:
                 round_results +=f"{i[0]} is incorrect!\n"
@@ -124,15 +124,16 @@ class Server:
                     round_results+=f" {i[0]} Wins!"
             self.send_parallel(bcolors.OKGREEN+bcolors.BOLD+round_results,self.players.items())
             
-            if len(results[0])==1:
+            if len(results[0])==1 or len(self.players_copy)==1:
                 end_mesg = bcolors.RED+f"Game over!\nCongratulations to the winner: {results[0][0][0]}"
                 self.send_parallel(end_mesg,self.players.items())
                 self.game_over(self.players.items())
                 break
 
             if len(results[0])>1:
-                players_copy = [(player, conn) for player, conn in players_copy if player not in [p[0] for p in results[1]]]
-
+                self.players_copy = [(player, conn) for player, conn in self.players_copy if player not in [p[0] for p in results[1]]]
+            
+                
     def game_over(self,players):
         for _,conn in players:
             conn.close()
@@ -181,10 +182,24 @@ class Server:
             t.join()
 
     def send_message(self, conn,mesg):
-        conn.send(mesg.encode())
+        try:
+            conn.send(mesg.encode())
+        except ConnectionResetError:
+            conn.close()
+            for i, (player,connection1) in enumerate(self.players_copy):
+                if connection1 == conn:
+                    del self.players_copy[i]
+
 
     def get_message(self, conn,mesg):
-        return conn.recv(self.buff_size).decode().strip().upper()
+        try:
+            answer = conn.recv(self.buff_size).decode().strip().upper()
+            return answer
+        except ConnectionResetError:
+            conn.close()
+            for i, (player,connection1) in enumerate(self.players_copy):
+                if connection1 == conn:
+                    del self.players_copy[i]
 
     def play(self):
         while True:
