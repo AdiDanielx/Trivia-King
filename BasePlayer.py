@@ -1,6 +1,11 @@
 import socket
 import struct
 import random
+import threading
+import keyboard 
+import timedinput
+import sys
+import select
 from Colors import bcolors
 names = ["Alice", "Bob", "Charlie", "David", "Emma", "Frank", "Grace", "Henry", "Ivy", "Jack", "Katie", "Leo", "Mia", "Noah", "Olivia", "Peter", "Quinn", "Rachel", "Sam", "Taylor",
                     "Sophia", "Ethan", "Isabella", "James", "Sophie", "Alexander", "Charlotte", "Michael", "Emily", "Jacob", "Lily", "Daniel", "Ava", "Matthew", "Madison", "William", "Emma", "Elijah", "Chloe", "Aiden"]
@@ -39,8 +44,23 @@ class BasePlayer():
 
         players_mes = self.conn_tcp.recv(self.buff_size).decode().strip()
         print(players_mes)
-    
-    def questions_answer (self):
+
+    def input_with_timeout(self, timeout):
+        user_input = ""
+
+        def get_input():
+            nonlocal user_input
+            user_input = input()
+
+        input_thread = threading.Thread(target=get_input)
+        input_thread.start()
+        input_thread.join(timeout)
+
+        if input_thread.is_alive():
+            print("Time's up! You took too long to input.")
+            user_input = '-1'  # Default value when timeout occurs
+        return user_input
+    def questions_answer(self):
         try:
             self.listen = False
             while True:
@@ -52,20 +72,19 @@ class BasePlayer():
                     break
                 print(question)
                 if self.bot == False:
-                    self.conn_tcp.settimeout(10)
-                    player_input = input().strip().lower()
-                    while player_input not in['t','y','1','f','n','0']:
-                        player_input = input(bcolors.RED+bcolors.BOLD+"please enter a valid input : ").strip().lower()
-                    self.conn_tcp.sendall(player_input.encode('utf-8'))
+                    user_input = self.input_with_timeout(10)  # Set the timeout to 10 seconds
+                    self.conn_tcp.sendall(user_input.encode('utf-8'))
                 else:
                     random_char = random.choice(['t', 'y', '1', 'f', 'n', '0'])
                     self.conn_tcp.sendall(random_char.encode('utf-8'))
 
                 mesage2 = self.conn_tcp.recv(self.buff_size).decode().strip()
                 print(f"\n{mesage2}")
-        except socket.timeout:
-            player_input = -1
-            self.conn_tcp.sendall(player_input.encode('utf-8'))
+        except Exception as e:
+            print(f"Exception occurred: {e}")
+            player_input = '-1'
+            self.conn_tcp.send(player_input.encode('utf-8'))
+ 
 
 
     def play(self):
