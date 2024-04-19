@@ -1,3 +1,4 @@
+
 import socket
 import struct
 import time
@@ -66,7 +67,7 @@ class Server:
     def handle_client(self,conn,addr):
         try:
             player_name = conn.recv(self.buff_size).decode()
-            print(bcolors.HEADER +f"Player connected: {player_name}")
+            print(bcolors.BOLD+bcolors.WHITE +f"Player connected: {player_name}")
             self.players[player_name] = conn
         except ConnectionResetError:
             # conn.close()
@@ -117,12 +118,12 @@ class Server:
             results = self.send_parallel_and_recv(bcolors.OKCYAN+send_q,self.players_copy,answer)
             round_results = ""
             for i in results[1]:
-                round_results +=f"{i[0]} is incorrect!\n"
+                round_results +=f"{bcolors.RED}{i[0]} is incorrect!\n"
             for i in results[0]:
-                round_results +=f"{i[0]} is correct!"
+                round_results +=f"{bcolors.OKGREEN}{i[0]} is correct!"
                 if len(results[0])==1:
                     round_results+=f" {i[0]} Wins!"
-            self.send_parallel(bcolors.OKGREEN+bcolors.BOLD+round_results,self.players.items())
+            self.send_parallel(round_results,self.players.items())
             
             if len(results[0])==1 or len(self.players_copy)==1:
                 end_mesg = bcolors.RED+f"Game over!\nCongratulations to the winner: {results[0][0][0]}"
@@ -146,7 +147,7 @@ class Server:
     def start_message(self,players):
         welcome_string = f"\n{bcolors.BOLD+bcolors.YELLOW}Welcome to {self.server_name} server, where we are answering trivia questions about Lionel Messi\n"
         player_list = "\n".join([f"Player {i+1}: {player[0]}" for i, player in enumerate(players)])
-        welcome_string += player_list
+        welcome_string += f"{player_list}\n"
         welcome_string += "\n=="
         # print(welcome_string)
         return welcome_string
