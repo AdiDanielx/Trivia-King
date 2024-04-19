@@ -60,6 +60,7 @@ class BasePlayer():
             print("Time's up! You took too long to input.")
             user_input = '-1'  # Default value when timeout occurs
         return user_input
+    
     def questions_answer(self):
         try:
             self.listen = False
@@ -73,6 +74,8 @@ class BasePlayer():
                 print(question)
                 if self.bot == False:
                     user_input = self.input_with_timeout(10)  # Set the timeout to 10 seconds
+                    if user_input not in ['t', 'y', '1', 'f', 'n', '0']:
+                        user_input = "-1"
                     self.conn_tcp.sendall(user_input.encode('utf-8'))
                 else:
                     random_char = random.choice(['t', 'y', '1', 'f', 'n', '0'])
