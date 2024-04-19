@@ -69,7 +69,7 @@ class Server:
             print(bcolors.HEADER +f"Player connected: {player_name}")
             self.players[player_name] = conn
         except ConnectionResetError:
-            conn.close()
+            # conn.close()
             player_to_remove = [name for name, connection in self.players.items() if connection == conn]
             del self.players[player_to_remove[0]]
     def get_players(self):
@@ -180,12 +180,13 @@ class Server:
             t.start()
         for t in player_threads:
             t.join()
+ 
 
     def send_message(self, conn,mesg):
         try:
             conn.send(mesg.encode())
         except ConnectionResetError:
-            conn.close()
+            # conn.close()
             for i, (player,connection1) in enumerate(self.players_copy):
                 if connection1 == conn:
                     del self.players_copy[i]
@@ -196,7 +197,7 @@ class Server:
             answer = conn.recv(self.buff_size).decode().strip().upper()
             return answer
         except ConnectionResetError:
-            conn.close()
+            # conn.close()
             for i, (player,connection1) in enumerate(self.players_copy):
                 if connection1 == conn:
                     del self.players_copy[i]
