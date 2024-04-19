@@ -7,6 +7,8 @@ import timedinput
 import sys
 import select
 from Colors import bcolors
+import string
+
 names = ["Alice", "Bob", "Charlie", "David", "Emma", "Frank", "Grace", "Henry", "Ivy", "Jack", "Katie", "Leo", "Mia", "Noah", "Olivia", "Peter", "Quinn", "Rachel", "Sam", "Taylor",
                     "Sophia", "Ethan", "Isabella", "James", "Sophie", "Alexander", "Charlotte", "Michael", "Emily", "Jacob", "Lily", "Daniel", "Ava", "Matthew", "Madison", "William", "Emma", "Elijah", "Chloe", "Aiden"]
 
@@ -50,21 +52,25 @@ class BasePlayer():
             self.conn_tcp.close()
             self.listen= True
     def input_with_timeout(self, timeout):
-        user_input = ""
+        try:
+            user_input = ""
 
-        def get_input():
-            nonlocal user_input
-            user_input = input()
+            def get_input():
+                nonlocal user_input
+                user_input = input()
 
-        input_thread = threading.Thread(target=get_input)
-        input_thread.start()
-        input_thread.join(timeout)
+            input_thread = threading.Thread(target=get_input)
+            input_thread.start()
+            input_thread.join(timeout)
 
-        if input_thread.is_alive():
-            print("Time's up! You took too long to input.")
-            user_input = '-1'  # Default value when timeout occurs
-        return user_input
-    
+            if input_thread.is_alive():
+                print("Time's up! You took too long to input.")
+                user_input = '-1'  # Default value when timeout occurs
+            return user_input
+        except Exception as e:
+            self.conn_tcp.close()
+            self.listen= True
+
     def questions_answer(self):
         try:
             self.listen = False
@@ -74,6 +80,7 @@ class BasePlayer():
                     print(f"\n{question}")
                     print("\nServer disconnected, listening for offer requests...")
                     self.listen = True
+                    self.conn_tcp.close()
                     break
                 print(question)
                 if self.bot == False:
@@ -88,17 +95,32 @@ class BasePlayer():
                 mesage2 = self.conn_tcp.recv(self.buff_size).decode().strip()
                 print(f"\n{mesage2}")
         except Exception as e:
-            print(f"Exception occurred: {e}")
-            player_input = '-1'
-            self.conn_tcp.send(player_input.encode('utf-8'))
- 
+            self.conn_tcp.close()
+            self.listen= True
 
 
     def play(self):
         while True:
             details = self.listen_for_offers()
-            self.player_name= random.choice(names)
+            if self.bot == True:
+                self.player_name = self.generate_bot_name()
+            else:
+                self.player_name= random.choice(names)
             print(bcolors.WHITE +f"Name of your player : {self.player_name}")
-            names.remove(self.player_name)
-            self.connect_to_game((details[0][0],details[1]))
-            self.questions_answer()
+            try:
+                names.remove(self.player_name)
+            except ValueError:
+                pass
+            try:
+                self.connect_to_game((details[0][0],details[1]))
+                self.questions_answer()
+            except (ConnectionRefusedError, ConnectionResetError):
+                self.conn_tcp.close()
+                self.listen= True
+
+
+    def generate_bot_name(self):
+        prefix = "BOT"
+        suffix_length = 6  # You can adjust the length of the random suffix here
+        suffix = ''.join(random.choices(string.ascii_lowercase, k=suffix_length))
+        return prefix + suffix
