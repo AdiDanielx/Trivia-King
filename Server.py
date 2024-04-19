@@ -91,49 +91,56 @@ class Server:
             t.join()
     
     def start_trivia(self):
-        self.keep_Sending = False
-        self.players_copy = list(self.players.items())
-        startMessage = self.start_message(self.players_copy)
-        # print(startMessage)
-        self.send_parallel(startMessage,self.players_copy)
-        while True:
-            # random.shuffle(self.questions)
-            if self.num_question > len(self.questions):
-                self.num_question=0
-            self.num_question +=1
-            question, answer = self.questions[self.num_question]
-            # self.questions = self.questions[1:] + [self.questions[0]]  # Rotate questions
+        try:
+            self.keep_Sending = False
+            self.players_copy = list(self.players.items())
+            startMessage = self.start_message(self.players_copy)
+            # print(startMessage)
+            self.send_parallel(startMessage,self.players_copy)
+            while True:
+                # random.shuffle(self.questions)
+                if self.num_question > len(self.questions):
+                    self.num_question=0
+                self.num_question +=1
+                question, answer = self.questions[self.num_question]
+                # self.questions = self.questions[1:] + [self.questions[0]]  # Rotate questions
 
-            self.round += 1
-            send_q = f"Round {self.round}, played by "
-            num_players = len(self.players_copy)
-            for i, (player, conn) in enumerate(self.players_copy):
-                if i == num_players - 1:
-                    send_q += f"and {player}:"
-                else:
-                    send_q += f"{player}, "
-            send_q += f"\nTrue or false: {question}\nYour answer True/False:"
-            
-            
-            results = self.send_parallel_and_recv(bcolors.OKCYAN+send_q,self.players_copy,answer)
-            round_results = ""
-            for i in results[1]:
-                round_results +=f"{bcolors.RED}{i[0]} is incorrect!\n"
-            for i in results[0]:
-                round_results +=f"{bcolors.OKGREEN}{i[0]} is correct!"
-                if len(results[0])==1:
-                    round_results+=f" {i[0]} Wins!"
-            self.send_parallel(round_results,self.players.items())
-            
-            if len(results[0])==1 or len(self.players_copy)==1:
-                end_mesg = bcolors.RED+f"Game over!\nCongratulations to the winner: {results[0][0][0]}"
-                self.send_parallel(end_mesg,self.players.items())
-                self.game_over(self.players.items())
-                break
+                self.round += 1
+                send_q = f"Round {self.round}, played by "
+                num_players = len(self.players_copy)
+                for i, (player, conn) in enumerate(self.players_copy):
+                    if i == num_players - 1:
+                        send_q += f"and {player}:"
+                    else:
+                        send_q += f"{player}, "
+                send_q += f"\nTrue or false: {question}\nYour answer True/False:"
+                
+                
+                results = self.send_parallel_and_recv(bcolors.OKCYAN+send_q,self.players_copy,answer)
+                round_results = ""
+                for i in results[1]:
+                    round_results +=f"{bcolors.RED}{i[0]} is incorrect!\n"
+                for i in results[0]:
+                    round_results +=f"{bcolors.OKGREEN}{i[0]} is correct!"
+                    if len(results[0])==1:
+                        round_results+=f" {i[0]} Wins!"
+                self.send_parallel(round_results,self.players.items())
+                
+                if len(results[0])==1 or len(self.players_copy)==1:
+                    if self.players_copy == results[0][0]:
+                        end_mesg = bcolors.RED+f"Game over!\nCongratulations to the winner: {results[0][0][0]}"
+                    else:
+                        end_mesg = bcolors.RED+f"Game over!\nAll players have disconnected"
+                    self.send_parallel(end_mesg,self.players.items())
+                    self.game_over(self.players.items())
+                    break
 
-            if len(results[0])>1:
-                self.players_copy = [(player, conn) for player, conn in self.players_copy if player not in [p[0] for p in results[1]]]
-            
+                if len(results[0])>1:
+                    self.players_copy = [(player, conn) for player, conn in self.players_copy if player not in [p[0] for p in results[1]]]
+        except (ConnectionResetError, ConnectionAbortedError) as e:
+            print(f"Client disconnected")
+
+
                 
     def game_over(self,players):
         for _,conn in players:
