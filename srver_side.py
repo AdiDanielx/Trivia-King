@@ -1,104 +1,189 @@
 import socket
-from datetime import datetime
-import threading
-import time
-from threading import * 
 import struct
-class Server:
-    link_proto = 'eth1'
-    buff_size = 1024
-    def __init__(self):
-        self.udp_port = 13117
+import time
+import random
+import threading
+import concurrent.futures
+from Colors import bcolors
 
-        #Message format
+class Server:
+
+    def __init__(self):
+        # link_proto = 'eth1'
+        self.buff_size = 1024
+        self.udp_port = 13117
         self.magic_cookie = 0xabcddcba
         self.message_type = 0x2
         self.server_name = 'The Best Server In The World abc' 
         self.udp_format = 'IbH32'
         self.ip = socket.gethostbyname(socket.gethostname())
         self.players = {}
-        
-        #UDP socket
-        self.broadcast_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.broadcast_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        self.round = 0
         self.keep_Sending = True
 
-        #TCP socket
-        self.welcome_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #create new TCP socket IPv4
-        self.welcome_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #allow reusing the socket
-        self.welcome_socket.bind((self.ip, 0)) #bind the socket to the server ip and assign port
-        self.tcp_port = self.welcome_socket.getsockname()[1] #extract the port numbber
 
+        self.tcpSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #create new TCP socket IPv4
+        self.tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #allow reusing the socket
+        self.tcpSocket.bind((self.ip, 0)) #bind the socket to the server ip and assign port
+        self.tcp_port = self.tcpSocket.getsockname()[1] #extract the port numbber
+        
+        self.questions = [
+            ("Lionel Messi is the all-time top scorer for Barcelona.", True),
+            ("Messi has won the FIFA Ballon d'Or award a record number of times.", True),
+            ("Messi has won the UEFA Champions League with Barcelona multiple times.", True),
+            ("Messi has won the Copa America with the Argentina national team.", True),
+            ("Messi made his senior debut for Barcelona in 2004.", True),
+            ("Messi has never played for any other professional club.", True),
+            ("Messi is known for his exceptional dribbling skills.", True),
+            ("Messi is the tallest player in the Barcelona squad.", False),
+            ("Messi has represented Argentina in multiple FIFA World Cup tournaments.", True),
+            ("Messi is the captain of the Argentina national team.", True),
+            ("Messi's preferred playing position is striker.", False),
+            ("Messi has won the FIFA Club World Cup with Barcelona.", True),
+            ("Messi's jersey number at Barcelona is 10.", True),
+            ("Messi has a lifetime contract with Barcelona.", False),
+            ("Messi has scored over 700 career goals.", True),
+            ("Messi has won the Copa del Rey with Barcelona.", True),
+            ("Messi has played alongside Neymar and Luis Suárez in Barcelona's attack.", True),
+            ("Messi has never received a red card in his professional career.", False),
+            ("Messi's first professional contract with Barcelona was signed on a napkin.", True),
+            ("Messi is the highest-paid football player in the world.", True),
+        ]
+
+    def udp_socket(self):
+        self.broadcast_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.broadcast_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
     def send_broadcast(self):
-        print("Server started, listening on IP address " + self.ip)
+        self.udp_socket()
+        print(bcolors.OKBLUE +bcolors.BOLD+"Server started, listening on IP address " + self.ip)
         message = struct.pack('IbH32s', self.magic_cookie, self.message_type, self.tcp_port, self.server_name.encode('utf-8'))
         while self.keep_Sending:
-            # self.broadcast_socket.sendto(message,(self.subnet_broadcast_ip, self.udp_port))
-            self.broadcast_socket.sendto(message,('<broadcast>', self.udp_port))
+            self.broadcast_socket.sendto(message,("<broadcast>", self.udp_port))
             time.sleep(1)
-    
+
     def handle_client(self,conn,addr):
-        print(f'new connetion {addr[0]}')
-        connected = True
         player_name = conn.recv(self.buff_size).decode()
-        self.players[player_name]=(conn,addr)
-        print(self.players)
-    
+        print(bcolors.HEADER +f"Player connected: {player_name}")
+        self.players[player_name] = conn
+
     def get_players(self):
-        self.welcome_socket.listen()
-        self.welcome_socket.settimeout(10)  # Set a timeout of 10 seconds for accepting connections
-        while self.keep_Sending:
-            try:
-                conn, addr = self.welcome_socket.accept()
-                self.welcome_socket.settimeout(10)
-                threading.Thread(target=self.handle_client, args=(conn, addr)).start()
-                print(f'active connections: {threading.active_count()-3}')  
-            except socket.timeout:
-                for i in self.players.values():
-                    i[0].send(f"Welcome to {self.server_name} server, where we are answering trivia questions about somthing. \n player1: {self.players.keys()}".encode('utf-8'))
-                self.keep_Sending = False
-                break
-        self.keep_Sending = False
-
-    def send_questions(self,player,addr):
-
-        pass
-        
+        self.tcpSocket.listen()
+        threads = []
+        try:
+            while True:
+                conn, addr = self.tcpSocket.accept()
+                self.tcpSocket.settimeout(10) #לבדוק להוסיף טיימר רק אחרי שיש 2 משתמשים
+                t = threading.Thread(target=self.handle_client, args=(conn, addr))
+                threads.append(t)
+                t.start()
+        except:
+            self.start_trivia()
+        for i in threads:
+            t.join()
     
-    def play(self,round = 0):
-        for name, (conn, addr) in self.players.items():
-            try:
-                conn.send("True or false: Aston Villa's current manager is Pep Guardiola\n".encode('utf-8'))
-                print(f'Sent question to {name}')
-                
-                # Set a timeout for receiving the answer
-                conn.settimeout(10)
-                
-                # Receive the answer from the client
-                answer = "conn.accept()"
-                if answer:
-                    print(f'Received answer from {name}: {answer}')
+    def start_trivia(self):
+        self.keep_Sending = False
+        players_copy = list(self.players.items())
+        startMessage = self.start_message(players_copy)
+        # print(startMessage)
+        self.send_parallel(startMessage,players_copy)
+        while True:
+            random.shuffle(self.questions)
+            question, answer = self.questions[0]
+            # self.questions = self.questions[1:] + [self.questions[0]]  # Rotate questions
+
+            self.round += 1
+            send_q = f"Round {self.round}, played by "
+            num_players = len(players_copy)
+            for i, (player, conn) in enumerate(players_copy):
+                if i == num_players - 1:
+                    send_q += f"and {player}:"
                 else:
-                    print(f'No answer received from {name} within 10 seconds')
-                
-            except socket.timeout:
-                print(f'No answer received from {name} within 10 seconds')
+                    send_q += f"{player}, "
+            send_q += f"\nTrue or false: {question}\nYour answer True/False:"
 
+            results = self.send_parallel_and_recv(bcolors.OKCYAN+send_q,players_copy,answer)
+            print(results)
+            round_results = ""
+            for i in results[1]:
+                round_results +=f"{i[0]} is incorrect!\n"
+            for i in results[0]:
+                round_results +=f"{i[0]} is correct!"
+                if len(results[0])==1:
+                    round_results+=f" {i[0]} Wins!"
+            self.send_parallel(bcolors.OKGREEN+bcolors.BOLD+round_results,self.players.items())
+            
+            if len(results[1])==1:
+                end_mesg = bcolors.RED+f"Game over!\nCongratulations to the winner: {results[0][0][0]}"
+                self.send_parallel(end_mesg,self.players.items())
+                self.game_over(self.players.items())
+                break
 
+            if len(results[0])>1:
+                players_copy = [(player, conn) for player, conn in players_copy if player not in results[1]]
 
+    def game_over(self,players):
+        for _,conn in players:
+            conn.close()
+        self.keep_Sending = True
+        self.players = {}
+        self.round = 0
+        print( bcolors.RED+"Game over,sending out offer requests...")
 
-    def start(self):
-        broardcast_thread = Thread(target = self.send_broadcast)
-        listen_thread = Thread(target = self.get_players)
-        broardcast_thread.start()
-        listen_thread.start()
-        broardcast_thread.join()
-        listen_thread.join()
-        self.play()
+    def start_message(self,players):
+        welcome_string = f"\n{bcolors.BOLD+bcolors.YELLOW}Welcome to {self.server_name} server, where we are answering trivia questions about Lionel Messi\n"
+        player_list = "\n".join([f"Player {i+1}: {player[0]}" for i, player in enumerate(players)])
+        welcome_string += player_list
+        welcome_string += "\n=="
+        # print(welcome_string)
+        return welcome_string
 
+    def send_parallel_and_recv(self,string_send,players,answer):
+        # print(bcolors.YELLOW+string_send)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            self.send_parallel(string_send,players)
+            futures = {executor.submit(self.get_message, conn, string_send): (name,conn) for name, conn in players}
+            correct = []
+            incorrect = []
+            for future in concurrent.futures.as_completed(futures):
+                name,conn = futures[future]
+                try:
 
-a= Server()
-a.start()
-# print(a.ip)
-# print(a.subnet_broadcast_ip)
+                    result = future.result()  # This will wait for the thread to finish and return its result
+                    if (result in ['t', 'y', '1'] and answer) or (result in ['f', 'n', '0'] and not answer):
+                        correct.append((name,conn))  # Store the result with its corresponding connection
+                    else:
+                        incorrect.append((name,conn))
+                except Exception as e:
+                    print(f"Exception: {e}")  # Handle exceptions here
+            return correct,incorrect
+    
+    def send_parallel(self,string_send,players):
+        print(string_send)
+        player_threads = []           
+        for _, conn in players:
+            t = threading.Thread(target=self.send_message, args=(conn, string_send))
+            player_threads.append(t)
+            t.start()
+        for t in player_threads:
+            t.join()
+
+    def send_message(self, conn,mesg):
+        conn.send(mesg.encode())
+
+    def get_message(self, conn,mesg):
+        return conn.recv(self.buff_size).decode().strip().upper()
+
+    def play(self):
+        while True:
+            broadcast_thread = threading.Thread(target=self.send_broadcast)
+            listen_thread = threading.Thread(target=self.get_players)
+            broadcast_thread.start()
+            listen_thread.start()
+            broadcast_thread.join()
+            listen_thread.join()
+
+if __name__ == "__main__":
+    S = Server()
+    S.play()

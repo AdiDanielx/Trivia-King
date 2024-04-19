@@ -2,11 +2,11 @@ from BasePlayer import BasePlayer
 import socket
 import struct
 
-class Client(BasePlayer):
+class BOT(BasePlayer):
     def __init__(self):
-        super().__init__()
+        super().__init__(bot=True)
 
 
 if __name__ == "__main__":
-    C = Client()
-    C.play()
+    B = BOT()
+    B.play()
