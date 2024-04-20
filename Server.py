@@ -246,7 +246,7 @@ class Server:
                     # Wait for the thread to finish and collect the result
                     result = future.result()  # This will wait for the thread to finish and return its result
                     # Check if the response is correct
-                    if (result in ['t', 'y', '1'] and answer) or (result in ['f', 'n', '0'] and not answer):
+                    if (result in ['t', 'y', '1','T','Y'] and answer) or (result in ['f', 'n', '0','F','N'] and not answer):
                         correct.append((name,conn))  # Append to correct list if correct
                     else:
                         incorrect.append((name,conn)) # Append to incorrect list otherwise
