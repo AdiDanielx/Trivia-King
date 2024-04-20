@@ -119,7 +119,7 @@ class BasePlayer():
                         # Prompt the user for input with a timeout of 10 seconds
                         player_input = inputimeout(prompt='', timeout=10)
                         # Validate the player input to be one of the acceptable responses
-                        if player_input not in ['t', 'y', '1', 'f', 'n', '0']:
+                        if player_input not in ['t', 'y', '1', 'f', 'n', '0','T','F','Y','N']:
                             player_input = '-1'  # Set invalid inputs to '-1'
                     except TimeoutOccurred:
                         player_input = '-1'  # Set input to '-1' if input timeout occurs
