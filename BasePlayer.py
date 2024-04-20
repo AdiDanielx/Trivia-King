@@ -101,7 +101,7 @@ class BasePlayer():
         except (Exception,ConnectionResetError,ConnectionAbortedError) as e:
             self.conn_tcp.close()
             self.listen= True
-            self.play()
+            return
             
 
 

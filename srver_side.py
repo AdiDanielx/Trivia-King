@@ -26,7 +26,6 @@ class Server:
         self.round = 0 # Round number for trivia game
         self.keep_Sending = True  # Flag to control server broadcast
         self.num_question = -1 # Index to track current question
-        self.numPlayers = 0  # Number of players connected
         self.players_copy = [] # Copy of player dictionary for manipulation
         self.tcpSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Create TCP socket for player connections
         self.tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow reusing the socket
@@ -115,8 +114,7 @@ class Server:
         try:
             while True:
                 conn, addr = self.tcpSocket.accept()
-                self.numPlayers+=1
-                if (self.numPlayers)>1:
+                if (len(self.players))>=1:
                     self.tcpSocket.settimeout(10) 
                 t = threading.Thread(target=self.handle_client, args=(conn, addr))
                 threads.append(t)
@@ -133,8 +131,13 @@ class Server:
         """
         Initiates the trivia game by sending questions to players and collecting their responses.
         """
+        if len(self.players)<2:
+            print(self.players)
+            print("not enough players")
+            self.listen = True
+            self.get_players()
         try:
-            # print(len(self.players))
+            self.round = 0
             self.keep_Sending = False
             self.broadcast_socket.close()
             self.players_copy = list(self.players.items())
@@ -143,7 +146,7 @@ class Server:
             self.send_parallel(startMessage,self.players_copy)
             while True:
                 # random.shuffle(self.questions)
-                if self.num_question > len(self.questions):
+                if self.num_question > len(self.questions)-1:
                     self.num_question=0
                 self.num_question +=1
                 question, answer = self.questions[self.num_question]
@@ -186,16 +189,16 @@ class Server:
                 if len(results[0])>1:
                     self.players_copy = [(player, conn) for player, conn in self.players_copy if player not in [p[0] for p in results[1]]]
         except (ConnectionResetError, ConnectionAbortedError) as e:
+            
             print(f"Client disconnected")
 
                 
     def game_over(self,players):
         for _,conn in players:
             conn.close()
-        self.keep_Sending = True
         self.players = {}
         self.round = 0
-        self.numPlayers = 0
+        self.keep_Sending = True
         print( bcolors.RED+"Game over,sending out offer requests...")
 
     def start_message(self,players):
@@ -218,12 +221,12 @@ class Server:
                 try:
 
                     result = future.result()  # This will wait for the thread to finish and return its result
-                    if (result in ['t', 'y', '1'] and answer) or (result in ['f', 'n', '0'] and not answer):
+                    if (result in ['t', 'y', '1'] and answer) or (result in ['f', 'n', '0'] and not answer): 
                         correct.append((name,conn))  # Store the result with its corresponding connection
                     else:
                         incorrect.append((name,conn))
                 except Exception as e:
-                    print(f"Exception: {e}")  # Handle exceptions here
+                    print(f"Exception: {e}")
             return correct,incorrect
     
     def send_parallel(self,string_send,players):
@@ -252,6 +255,7 @@ class Server:
         player_to_remove = [name for name, player_conn in self.players.items() if player_conn == conn]
         if player_to_remove:
             del self.players[player_to_remove[0]]
+            del self.players_copy[player_to_remove[0]]
         # Close the socket if it's not already closed.
             conn.close()
         print(f"Player {player_to_remove[0]} disconnected.")
@@ -346,6 +350,7 @@ class Server:
 
     def play(self):
         while True:
+            self.keep_Sending = True
             broadcast_thread = threading.Thread(target=self.send_broadcast)
             listen_thread = threading.Thread(target=self.get_players)
             broadcast_thread.start()
