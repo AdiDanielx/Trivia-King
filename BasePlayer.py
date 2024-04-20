@@ -139,7 +139,7 @@ class BasePlayer():
             # Set the listening flag back to True to allow reconnecting for new game offers
             self.listen = True
 
-     def play(self):
+    def play(self):
         """
         Main loop for the player that listens for server offers, connects to the game,
         and handles gameplay until the session ends.
