@@ -204,7 +204,7 @@ class Server:
 
                 
     def game_over(self,players):
-         """
+        """
         Resets the game state and closes all player connections when the game ends.
         """
         for _,conn in players:
