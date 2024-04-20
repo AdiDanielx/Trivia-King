@@ -2,12 +2,10 @@ import socket
 import struct
 import random
 import threading
-import keyboard 
-import timedinput
-import sys
-import select
+import time
 from Colors import bcolors
 import string
+from inputimeout import inputimeout, TimeoutOccurred
 
 names = ["Alice", "Bob", "Charlie", "David", "Emma", "Frank", "Grace", "Henry", "Ivy", "Jack", "Katie", "Leo", "Mia", "Noah", "Olivia", "Peter", "Quinn", "Rachel", "Sam", "Taylor",
                     "Sophia", "Ethan", "Isabella", "James", "Sophie", "Alexander", "Charlotte", "Michael", "Emily", "Jacob", "Lily", "Daniel", "Ava", "Matthew", "Madison", "William", "Emma", "Elijah", "Chloe", "Aiden"]
@@ -28,15 +26,21 @@ class BasePlayer():
         
         
     def listen_for_offers(self):
-        print(bcolors.OKBLUE +bcolors.BOLD+"Client started, listening for offer requests")
-        while self.listen:
-            data, addr = self.listen_socket.recvfrom(self.buff_size)
-            msg = struct.unpack(self.udp_format, data)
-            if msg[0] == self.magic_cookie and msg[1] == self.message_type:
-                print(bcolors.OKBLUE+f"Received offer from server '{msg[3].decode('utf-8')}' at address {addr[0]}, attempting to connect...")
-                return addr,msg[2] #return tuple of server ip and dedicated port
-            else:
-                return addr,msg
+        try:
+            print(bcolors.LIGHTPURPLE +bcolors.BOLD+"Client started, listening for offer requests")
+            while self.listen:
+                data, addr = self.listen_socket.recvfrom(self.buff_size)
+                msg = struct.unpack(self.udp_format, data)
+                if msg[0] == self.magic_cookie and msg[1] == self.message_type:
+                    print(bcolors.LIGHT2+f"Received offer from server '{msg[3].decode('utf-8')}' at address {addr[0]}, attempting to connect...")
+                    return addr,msg[2] #return tuple of server ip and dedicated port
+                else:
+                    return addr,msg
+        except (ConnectionRefusedError, ConnectionResetError):
+            print("Error: Failed to connect to the server.")
+            self.listen = True
+            if hasattr(self, 'conn_tcp'):
+                self.conn_tcp.close()
 
     def connect_to_game(self, addr):
         try:
@@ -48,28 +52,10 @@ class BasePlayer():
 
             players_mes = self.conn_tcp.recv(self.buff_size).decode().strip()
             print(players_mes)
-        except (ConnectionRefusedError, ConnectionResetError):
-            self.conn_tcp.close()
-            self.listen= True
-    def input_with_timeout(self, timeout):
-        try:
-            user_input = ""
-
-            def get_input():
-                nonlocal user_input
-                user_input = input()
-
-            input_thread = threading.Thread(target=get_input)
-            input_thread.start()
-            input_thread.join(timeout)
-
-            if input_thread.is_alive():
-                print("Time's up! You took too long to input.")
-                user_input = '-1'  # Default value when timeout occurs
-            return user_input
         except Exception as e:
             self.conn_tcp.close()
             self.listen= True
+
 
     def questions_answer(self):
         try:
@@ -78,25 +64,31 @@ class BasePlayer():
                 question = self.conn_tcp.recv(self.buff_size).decode().strip()
                 if "Game over" in question:
                     print(f"\n{question}")
-                    print("\nServer disconnected, listening for offer requests...")
+                    mesg_over = self.conn_tcp.recv(self.buff_size).decode().strip()
+                    print(mesg_over)
+                    print(f"\n{bcolors.LIGHTPURPLE}+{bcolors.BOLD}Server disconnected, listening for offer requests...")
                     self.listen = True
                     self.conn_tcp.close()
                     break
                 print(question)
                 if self.bot == False:
-                    user_input = self.input_with_timeout(10)  # Set the timeout to 10 seconds
-                    if user_input not in ['t', 'y', '1', 'f', 'n', '0']:
-                        user_input = "-1"
-                    self.conn_tcp.sendall(user_input.encode('utf-8'))
+                    # player_input = input().strip().lower()
+                    try:
+                        player_input = inputimeout(prompt='', timeout=10)
+                        if player_input not in['t','y','1','f','n','0']:
+                            player_input = '-1'
+                    except TimeoutOccurred:
+                        player_input = '-1'
+                    self.conn_tcp.sendall(player_input.encode('utf-8'))
                 else:
                     random_char = random.choice(['t', 'y', '1', 'f', 'n', '0'])
                     self.conn_tcp.sendall(random_char.encode('utf-8'))
-
                 mesage2 = self.conn_tcp.recv(self.buff_size).decode().strip()
-                print(f"\n{mesage2}")
-        except Exception as e:
+                print(mesage2)
+        except Exception:
             self.conn_tcp.close()
             self.listen= True
+            
 
 
     def play(self):
@@ -106,7 +98,7 @@ class BasePlayer():
                 self.player_name = self.generate_bot_name()
             else:
                 self.player_name= random.choice(names)
-            print(bcolors.WHITE +f"Name of your player : {self.player_name}")
+            print(bcolors.light +f"Name of your player : {self.player_name}")
             try:
                 names.remove(self.player_name)
             except ValueError:
@@ -114,11 +106,9 @@ class BasePlayer():
             try:
                 self.connect_to_game((details[0][0],details[1]))
                 self.questions_answer()
-            except (ConnectionRefusedError, ConnectionResetError):
+            except Exception as e:
                 self.conn_tcp.close()
                 self.listen= True
-
-
     def generate_bot_name(self):
         prefix = "BOT"
         suffix_length = 6  # You can adjust the length of the random suffix here
