@@ -18,7 +18,7 @@ class BasePlayer():
         Args:
             bot (bool): Determines if the player is a bot or a real person.
         """
-        self.udp_port = 13117  # UDP port number for listening
+        self.UDP_PORT = 13117  # UDP port number for listening
         self.buff_size = 1024  # Buffer size for socket communication
         self.magic_cookie = 0xabcddcba  # Magic cookie to identify valid messages
         self.message_type = 0x2  # Message type identifier
@@ -27,33 +27,36 @@ class BasePlayer():
         self.listen = True  # Control flag for the listening loop
         self.bot = bot  # Flag to determine if the player is a bot
         # Create a UDP socket for listening to broadcast messages
-        self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        self.listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Set the socket to reuse the address
-        self.listen_socket.bind(('', self.udp_port))  # Bind the socket to all interfaces
+        # self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        # self.listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Set the socket to reuse the address
+        # self.listen_socket.bind(('', self.udp_port))  # Bind the socket to all interfaces
         
-        
+
     def listen_for_offers(self):
         """
         Listen for broadcast offers from servers and validate them.
         """
         try:
-            print(bcolors.LIGHTPURPLE + bcolors.BOLD + "Client started, listening for offer requests")
-            while self.listen:  # Keep listening while the listen flag is True
-                # Receive data from the network
-                data, addr = self.listen_socket.recvfrom(self.buff_size)
-                # Unpack the data according to the specified format
-                msg = struct.unpack(self.udp_format, data)
-                # Check if the message is valid
-                if msg[0] == self.magic_cookie and msg[1] == self.message_type:
-                    print(bcolors.LIGHT2 + f"Received offer from server '{msg[3].decode('utf-8')}' at address {addr[0]}, attempting to connect...")
-                    return addr, msg[2]  # Return server address and TCP port
-                else:
-                    return addr, msg
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as self.listen_socket:
+                self.listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)    
+                self.listen_socket.bind(('', self.UDP_PORT))                                
+                print(bcolors.LIGHTPURPLE + bcolors.BOLD + "Client started, listening for offer requests")
+                while self.listen:
+                    # Receive data from the network
+                    data, addr = self.listen_socket.recvfrom(self.buff_size)
+                    # Unpack the data according to the specified format
+                    msg = struct.unpack(self.udp_format, data)
+                    # Check if the message is valid
+                    if msg[0] == self.magic_cookie and msg[1] == self.message_type:
+                        print(bcolors.LIGHT2 + f"Received offer from server '{msg[3].decode('utf-8')}' at address {addr[0]}, attempting to connect...")
+                        return addr, msg[2]  # Return server address and TCP port
+                    else:
+                        return addr, msg
         except (ConnectionRefusedError, ConnectionResetError):
             print("Error: Failed to connect to the server.")
             self.listen = True
-            if hasattr(self, 'conn_tcp'):
-                self.conn_tcp.close()
+            # if hasattr(self, 'conn_tcp'):
+            #     self.conn_tcp.close()
   
     def connect_to_game(self, addr):
         """
@@ -184,9 +187,9 @@ class BasePlayer():
             str: The generated unique bot name.
         """
         prefix = "BOT"  # Define the prefix for bot names
-        suffix_length = 6  # Define the length of the random suffix
+        # suffix_length = 6  # Define the length of the random suffix
         # Generate a random string of lowercase letters of defined length
-        suffix = ''.join(random.choices(string.ascii_lowercase, k=suffix_length))
+        suffix = '_'.join(random.choice(names))
         # Return the concatenated prefix and suffix as the bot name
         return prefix + suffix
     
